@@ -1,0 +1,22 @@
+COMO COLOCAR NO AR (uns 15 minutos)
+
+1) Crie uma conta grátis em supabase.com e um projeto novo (guarde a senha do banco).
+2) No menu SQL Editor > New query: cole todo o conteúdo de schema.sql e clique Run.
+3) Authentication > Users > Add user: crie o seu e-mail e senha (marque "Auto confirm"). Esse é o login do painel.
+4) Authentication > Sign In / Providers (ou Settings): DESLIGUE "Allow new users to sign up".
+   IMPORTANTE: sem isso, qualquer pessoa poderia criar conta e mexer no painel.
+5) Project Settings > API: copie a "Project URL" e a chave "anon" (public/publishable).
+   NUNCA use a chave "service_role".
+6) Abra index.html e admin.html num editor de texto e troque nos dois:
+   COLE_AQUI_A_PROJECT_URL  e  COLE_AQUI_A_ANON_KEY
+   No index.html troque também pixKey, pixName e pixCity.
+7) Hospedagem: acesse app.netlify.com/drop e arraste a PASTA "rifa" inteira (index.html, admin.html, freezer.jpeg).
+   O link do painel é  seu-site.netlify.app/admin.html  (não divulgue).
+
+COMO USAR
+- Cliente escolhe números e paga: eles ficam RESERVADOS por 15 minutos (aparecem em laranja para os outros).
+- Você abre o painel, vê o pedido pendente, confere o comprovante e toca em CONFIRMAR PAGO.
+- O número vira VENDIDO para todos e o painel gera a mensagem para o grupo/status do WhatsApp.
+- Se o cliente não pagar, a reserva vence sozinha e o número volta a ficar livre.
+
+Para mudar o tempo de reserva, altere "15 minutes" no schema.sql (antes de rodar) e reserveMin nos dois HTMLs.

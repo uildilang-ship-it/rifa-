@@ -1,0 +1,37 @@
+<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="robots" content="noindex"><title>Painel da Rifa</title>
+<style>*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#070908;color:#fff;padding:18px;padding-bottom:40px}:root{--g:#63f51d}
+.w{max-width:640px;margin:auto}h1{font-size:22px}h1 b{color:var(--g)}.card{background:#101410;border:1px solid #293229;border-radius:16px;padding:16px;margin-top:14px}
+input,textarea{width:100%;padding:13px;margin-top:8px;background:#0a0d0a;border:1px solid #333d33;border-radius:10px;color:#fff;font-size:16px;font-family:inherit}textarea{min-height:110px}
+.btn{padding:12px 14px;border:0;border-radius:10px;background:var(--g);color:#071006;font-weight:900;font-size:14px;cursor:pointer;text-decoration:none;display:inline-block}.btn.s{background:#242b24;color:#fff}.btn.r{background:#5a2a2a;color:#fff}.full{width:100%;margin-top:10px;text-align:center}
+small{color:#9ca49c}.ped{border:1px solid #303b30;border-radius:12px;padding:12px;margin-top:10px}.acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.prog{font-weight:900;color:var(--g)}.exp{color:#e0a040;font-size:12px}</style></head><body><div class="w">
+<h1>❄ PAINEL DA <b>RIFA</b></h1>
+<div class="card" id="login"><small>Entre com o e-mail e a senha criados no Supabase</small><input id="em" type="email" placeholder="E-mail"><input id="pw" type="password" placeholder="Senha"><button class="btn full" onclick="entrar()">ENTRAR</button></div>
+<div id="app" style="display:none">
+<div class="card"><div class="prog" id="prog"></div><small>Atualiza sozinho a cada 10 segundos</small> <button class="btn s" onclick="load()">ATUALIZAR</button> <button class="btn s" onclick="sair()">SAIR</button></div>
+<div class="card"><b>Pagamentos pendentes</b><div id="pend"></div></div>
+<div class="card" id="mbox" style="display:none"><small>MENSAGEM PARA O GRUPO / STATUS</small><textarea id="msg" readonly></textarea><div class="acts"><button class="btn" onclick="navigator.clipboard.writeText($('msg').value);alert('Copiado!')">COPIAR</button><a id="wa" class="btn s" target="_blank" rel="noopener noreferrer" href="#">ABRIR NO WHATSAPP</a></div></div>
+<div class="card"><b>Vendidos</b><div id="vend"></div></div></div></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script>
+const CFG={supabaseUrl:"COLE_AQUI_A_PROJECT_URL",supabaseKey:"COLE_AQUI_A_ANON_KEY",price:25,total:100,reserveMin:15};
+const $=i=>document.getElementById(i),p2=n=>String(n).padStart(2,'0'),brl=v=>v.toLocaleString('pt-BR',{style:'currency',currency:'BRL'}),esc=s=>String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const sb=supabase.createClient(CFG.supabaseUrl,CFG.supabaseKey);let rows=[],timer=null;
+async function entrar(){const{error}=await sb.auth.signInWithPassword({email:$('em').value.trim(),password:$('pw').value});if(error)return alert('E-mail ou senha incorretos.');init()}
+async function sair(){await sb.auth.signOut();location.reload()}
+async function init(){const{data}=await sb.auth.getSession();if(!data.session)return;$('login').style.display='none';$('app').style.display='block';load();clearInterval(timer);timer=setInterval(load,10000)}
+function group(list){const g={};list.forEach(r=>{(g[r.pedido]=g[r.pedido]||{p:r.pedido,nome:r.nome,wa:r.whatsapp,t:r.reservado_em,pago:r.pago_em,ns:[]}).ns.push(r.numero)});return Object.values(g)}
+async function load(){const{data,error}=await sb.from('rifa_numeros').select('*').neq('status','livre').order('numero');if(error)return alert('Erro ao carregar: '+error.message);rows=data;
+ const v=rows.filter(r=>r.status==='vendido'),p=rows.filter(r=>r.status==='reservado');
+ $('prog').textContent=v.length+' vendidos · '+p.length+' reservados · '+(CFG.total-v.length-p.length)+' livres';
+ $('pend').innerHTML=group(p).map(g=>{const min=Math.round((Date.now()-new Date(g.t))/60000),exp=min>CFG.reserveMin;
+  return '<div class="ped"><b>'+esc(g.nome)+'</b> · '+g.ns.map(p2).join(', ')+' · '+brl(g.ns.length*CFG.price)+'<br><small>'+esc(g.wa)+' · há '+min+' min</small>'+(exp?' <span class="exp">reserva vencida (o número já aparece livre no site)</span>':'')+
+  '<div class="acts"><button class="btn" onclick="conf(\''+g.p+'\')">CONFIRMAR PAGO</button><button class="btn r" onclick="lib(\''+g.p+'\')">LIBERAR</button><a class="btn s" target="_blank" rel="noopener noreferrer" href="https://wa.me/55'+String(g.wa).replace(/\D/g,'').replace(/^55/,'')+'">CHAMAR</a></div></div>'}).join('')||'<small>Nenhum pendente.</small>';
+ $('vend').innerHTML=group(v).map(g=>'<div class="ped"><b>'+esc(g.nome)+'</b> · '+g.ns.map(p2).join(', ')+'<br><small>'+esc(g.wa)+'</small></div>').join('')||'<small>Nenhuma venda ainda.</small>'}
+async function conf(p){const{data,error}=await sb.from('rifa_numeros').update({status:'vendido',pago_em:new Date().toISOString()}).eq('pedido',p).select();
+ if(error||!data.length)return alert('Não foi possível confirmar: os números podem ter sido liberados/reservados por outra pessoa.');
+ const nome=data[0].nome.trim().split(' ')[0],ns=data.map(r=>r.numero).sort((a,b)=>a-b),left=CFG.total-(rows.filter(r=>r.status==='vendido').length+ns.length);
+ const m='🎉 '+nome+' garantiu '+(ns.length>1?'as cotas nº ':'a cota nº ')+ns.map(p2).join(', ')+' da rifa do freezer!\n\n'+(left>0?'Ainda restam '+left+' números. Garanta o seu! ❄️':'Todos os números foram vendidos! 🎊');
+ $('msg').value=m;$('wa').href='https://wa.me/?text='+encodeURIComponent(m);$('mbox').style.display='block';load()}
+async function lib(p){if(!confirm('Liberar esses números?'))return;await sb.from('rifa_numeros').update({status:'livre',nome:null,whatsapp:null,pedido:null,reservado_em:null,pago_em:null}).eq('pedido',p);load()}
+init();
+</script></body></html>
